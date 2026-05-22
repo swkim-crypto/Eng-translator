@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>한국-라오스 회의 통번역</title>
+<title>한국-영어 회의 통번역 시스템</title>
 <script src="/static/socket.io.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Sans+Lao:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg:        #0f1117;
@@ -14,7 +14,7 @@
     --bg3:       #1e2538;
     --border:    #2a3248;
     --accent-ko: #4f9cf9;
-    --accent-lo: #f97b4f;
+    --accent-en: #f97b4f; /* 영어 컴포넌트의 테마 컬러 */
     --accent-ok: #4fcf8a;
     --text:      #e8eaf0;
     --text-dim:  #6b7492;
@@ -25,25 +25,23 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
   body {
-    font-family: 'Noto Sans KR', 'Noto Sans Lao', sans-serif;
+    font-family: 'Noto Sans KR', sans-serif;
     background: var(--bg);
     color: var(--text);
     display: flex;
     flex-direction: column;
   }
 
-
   /* ── TOPBAR ── */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 14px;
-    background: var(--bg2);
+    padding: 8px 14px; background: var(--bg2);
     border-bottom: 1px solid var(--border);
-    flex-shrink: 0; gap: 10px; height: 60px;
+    flex-shrink: 0; gap: 10px; height: 60px; position: relative;
   }
   .logo { font-size: 16px; font-weight: 700; white-space: nowrap; }
   .logo .ko { color: var(--accent-ko); }
-  .logo .lo { color: var(--accent-lo); }
+  .logo .en { color: var(--accent-en); }
   .pills { display: flex; gap: 5px; }
   .pill {
     font-size: 10px; font-family: 'JetBrains Mono', monospace;
@@ -65,17 +63,8 @@
   .btn.ok  { border-color: var(--accent-ok); color: var(--accent-ok); }
   .btn.ok:hover { background: rgba(79,207,138,0.1); }
 
-
-  /* 로고 */
-  .header-logo {
-    height: 44px; width: auto; object-fit: contain;
-    flex-shrink: 0;
-  }
-  .header-logo-laos {
-    height: 48px; width: auto; object-fit: contain;
-    flex-shrink: 0;
-  }
-  .topbar { position: relative; }
+  .header-logo { height: 44px; width: auto; object-fit: contain; flex-shrink: 0; }
+  .header-logo-flag { height: 35px; width: auto; object-fit: contain; flex-shrink: 0; border-radius: 4px; }
 
   /* ── SETUP SCREEN ── */
   #setup-screen {
@@ -100,527 +89,239 @@
   }
   .role-card:hover { transform: translateY(-2px); }
   .role-card.ko:hover { border-color: var(--accent-ko); }
-  .role-card.lo:hover { border-color: var(--accent-lo); }
+  .role-card.en:hover { border-color: var(--accent-en); }
   .role-card .icon { font-size: 36px; margin-bottom: 10px; }
   .role-card .name { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
   .role-card .desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
 
-  /* ── APP SCREEN: 3-column layout ── */
+  /* ── APP SCREEN ── */
   #app-screen { flex: 1; display: none; overflow: hidden; }
   #app-screen.active { display: flex; flex-direction: column; }
+  .app-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 
-  .app-body {
-    flex: 1; display: flex; overflow: hidden; min-height: 0;
-  }
-
-  /* ── LEFT PANEL: 회의록 목록 ── */
+  /* LEFT */
   .panel-left {
-    width: 200px; flex-shrink: 0;
-    border-right: 1px solid var(--border);
-    background: var(--bg2);
-    display: flex; flex-direction: column;
-    overflow: hidden; min-height: 0;
+    width: 200px; flex-shrink: 0; border-right: 1px solid var(--border);
+    background: var(--bg2); display: flex; flex-direction: column; overflow: hidden; min-height: 0;
   }
   .panel-header {
-    padding: 10px 12px;
-    font-size: 11px; font-weight: 600;
-    color: var(--text-dim);
-    border-bottom: 1px solid var(--border);
-    letter-spacing: 0.5px; text-transform: uppercase;
-    flex-shrink: 0;
+    padding: 10px 12px; font-size: 11px; font-weight: 600; color: var(--text-dim);
+    border-bottom: 1px solid var(--border); letter-spacing: 0.5px; text-transform: uppercase; flex-shrink: 0;
   }
-  .minutes-list {
-    flex: 1; overflow-y: auto;
-    padding: 8px;
-  }
+  .minutes-list { flex: 1; overflow-y: auto; padding: 8px; }
   .minutes-list::-webkit-scrollbar { width: 4px; }
   .minutes-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .minutes-item {
-    padding: 8px 10px; border-radius: 7px;
-    cursor: pointer; margin-bottom: 4px;
-    border: 1px solid transparent;
-    transition: all 0.15s;
+    padding: 8px 10px; border-radius: 7px; cursor: pointer; margin-bottom: 4px;
+    border: 1px solid transparent; transition: all 0.15s;
   }
   .minutes-item:hover { background: var(--bg3); border-color: var(--border); }
   .minutes-item.active { background: var(--bg3); border-color: var(--accent); }
-  .minutes-date {
-    font-size: 10px; font-family: 'JetBrains Mono', monospace;
-    color: var(--text-dim); margin-bottom: 2px;
-  }
+  .minutes-date { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-bottom: 2px; }
   .minutes-title { font-size: 12px; color: var(--text); font-weight: 500; }
   .minutes-count { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-  .minutes-empty {
-    padding: 20px 10px; text-align: center;
-    font-size: 11px; color: var(--text-dim); line-height: 1.6;
-  }
+  .minutes-empty { padding: 20px 10px; text-align: center; font-size: 11px; color: var(--text-dim); line-height: 1.6; }
 
-  /* ── CENTER PANEL: 대화 ── */
-  .panel-center {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden;
-    min-width: 0; min-height: 0;
-  }
-
-  /* Input area */
-  .input-area {
-    padding: 10px 14px;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .speaker-row {
-    display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
-  }
+  /* CENTER */
+  .panel-center { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; }
+  .input-area { padding: 10px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; relative; }
+  .speaker-row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
   .speaker-row label { font-size: 11px; color: var(--text-dim); }
   .speaker-row input {
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 6px; padding: 3px 9px; color: var(--text);
-    font-size: 12px; font-family: inherit; width: 130px; outline: none;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 9px; color: var(--text); font-size: 12px; width: 130px; outline: none;
   }
-  .speaker-row input:focus { border-color: var(--accent); }
   .input-row { display: flex; gap: 8px; align-items: flex-end; }
   #msg-input {
-    flex: 1; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 9px; padding: 10px 13px; color: var(--text);
-    font-size: 15px; font-family: inherit; resize: none;
-    outline: none; min-height: 46px; max-height: 110px; line-height: 1.5;
-    transition: border-color 0.15s;
+    flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px;
+    padding: 10px 13px; color: var(--text); font-size: 15px; resize: none; outline: none;
+    min-height: 46px; max-height: 110px; line-height: 1.5; transition: border-color 0.15s;
   }
   #msg-input:focus { border-color: var(--accent); }
-  #msg-input::placeholder { color: var(--text-dim); }
   .send-btn {
-    width: 46px; height: 46px; border-radius: 9px; border: none;
-    background: var(--accent); color: #fff; font-size: 18px;
-    cursor: pointer; flex-shrink: 0; transition: opacity 0.15s;
+    width: 46px; height: 46px; border-radius: 9px; border: none; background: var(--accent);
+    color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: opacity 0.15s;
   }
   .send-btn:hover { opacity: 0.85; }
 
-  /* Transcript */
-  .transcript-wrap {
-    flex: 1; overflow-y: auto; min-height: 0;
-    padding: 12px; display: flex; flex-direction: column; gap: 8px;
-  }
+  .transcript-wrap { flex: 1; overflow-y: auto; min-height: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
   .transcript-wrap::-webkit-scrollbar { width: 5px; }
   .transcript-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  .empty-state {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--text-dim); gap: 8px; text-align: center;
-  }
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim); gap: 8px; text-align: center; }
   .empty-state .icon { font-size: 32px; opacity: 0.4; }
-  .empty-state p { font-size: 12px; line-height: 1.6; }
 
-  /* Entry */
-  .entry {
-    border-radius: 10px; border: 1px solid var(--border);
-    padding: 12px 14px; background: var(--bg2);
-    animation: slide-in 0.2s ease;
-  }
-  @keyframes slide-in {
-    from { opacity: 0; transform: translateY(5px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  /* Entry Item */
+  .entry { border-radius: 10px; border: 1px solid var(--border); padding: 12px 14px; background: var(--bg2); animation: slide-in 0.2s ease; }
+  @keyframes slide-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
   .entry.mine   { border-color: var(--accent); background: #1a2540; }
   .entry.theirs { opacity: 0.85; }
   .entry.theirs:hover { opacity: 1; }
-
   .entry-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
   .entry-time { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
   .lang-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
   .lang-badge.ko { background: rgba(79,156,249,0.15); color: var(--accent-ko); }
-  .lang-badge.lo { background: rgba(249,123,79,0.15);  color: var(--accent-lo); }
+  .lang-badge.en { background: rgba(249,123,79,0.15);  color: var(--accent-en); }
   .mine-tag { font-size: 10px; color: var(--text-dim); margin-left: auto; }
   .entry-id { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
-
   .speaker-name { font-size: 11px; color: var(--text-mid); margin-bottom: 5px; font-weight: 500; }
   .text-source { font-size: 16px; line-height: 1.5; color: var(--text); margin-bottom: 8px; }
-  .entry.theirs .text-source { font-size: 13px; }
-  .divider {
-    display: flex; align-items: center; gap: 7px;
-    margin: 6px 0; color: var(--text-dim); font-size: 10px;
-  }
+  .divider { display: flex; align-items: center; gap: 7px; margin: 6px 0; color: var(--text-dim); font-size: 10px; }
   .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   .text-translated { font-size: 13px; line-height: 1.6; color: var(--text-mid); }
   .translating { display: flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 12px; }
-  .spinner {
-    width: 12px; height: 12px;
-    border: 2px solid var(--border); border-top-color: var(--accent-ko);
-    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
-  }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent-ko); border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .err-text { color: #f94f5a; font-size: 12px; }
+  .statusbar { padding: 5px 14px; background: var(--bg2); border-top: 1px solid var(--border); font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; display: flex; gap: 14px; flex-shrink: 0; }
 
-  /* Status bar */
-  .statusbar {
-    padding: 5px 14px; background: var(--bg2); border-top: 1px solid var(--border);
-    font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
-    display: flex; gap: 14px; flex-shrink: 0;
-  }
-
-  /* ── RIGHT PANEL: 통역사 코멘트 ── */
-  .panel-right {
-    width: 240px; flex-shrink: 0;
-    border-left: 1px solid var(--border);
-    background: var(--bg2);
-    display: flex; flex-direction: column;
-    overflow: hidden; min-height: 0;
-  }
-  .comments-list {
-    flex: 1; overflow-y: auto; padding: 8px;
-  }
-  .comments-list::-webkit-scrollbar { width: 4px; }
-  .comments-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .comment-item {
-    margin-bottom: 8px; padding: 8px 10px;
-    border-radius: 7px; background: var(--bg3);
-    border: 1px solid var(--border);
-  }
-  .comment-ref {
-    font-size: 10px; color: var(--accent-ok);
-    font-family: 'JetBrains Mono', monospace; margin-bottom: 4px;
-  }
+  /* RIGHT */
+  .panel-right { width: 240px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg2); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .comments-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .comment-item { margin-bottom: 8px; padding: 8px 10px; border-radius: 7px; background: var(--bg3); border: 1px solid var(--border); }
+  .comment-ref { font-size: 10px; color: var(--accent-ok); font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
   .comment-text { font-size: 12px; color: var(--text-mid); line-height: 1.5; }
   .comment-time { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
-
-  .comment-input-area {
-    padding: 10px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .comment-ref-label {
-    font-size: 10px; color: var(--text-dim); margin-bottom: 5px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  #comment-input {
-    width: 100%; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 7px; padding: 8px 10px; color: var(--text);
-    font-size: 12px; font-family: inherit; resize: none;
-    outline: none; min-height: 60px; max-height: 100px; line-height: 1.5;
-  }
-  #comment-input:focus { border-color: var(--accent-ok); }
-  #comment-input::placeholder { color: var(--text-dim); }
-  .comment-send-btn {
-    width: 100%; margin-top: 6px; padding: 7px;
-    border-radius: 7px; border: 1px solid var(--accent-ok);
-    background: transparent; color: var(--accent-ok);
-    font-size: 12px; cursor: pointer; font-family: inherit;
-    transition: all 0.15s;
-  }
+  .comment-input-area { padding: 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  #comment-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; color: var(--text); font-size: 12px; resize: none; outline: none; min-height: 60px; max-height: 100px; line-height: 1.5; }
+  .comment-send-btn { width: 100%; margin-top: 6px; padding: 7px; border-radius: 7px; border: 1px solid var(--accent-ok); background: transparent; color: var(--accent-ok); font-size: 12px; cursor: pointer; transition: all 0.15s; }
   .comment-send-btn:hover { background: rgba(79,207,138,0.1); }
-  .comments-empty {
-    padding: 20px 10px; text-align: center;
-    font-size: 11px; color: var(--text-dim); line-height: 1.6;
-  }
 
-
-  /* progress bar on send */
+  /* Progress standard */
   .input-area { position: relative; }
-  #translate-progress {
-    position: absolute; bottom: 0; left: 0;
-    height: 3px; width: 0%; background: var(--accent);
-    border-radius: 0 0 0 9px;
-    transition: width 0.1s linear;
-    opacity: 0;
-  }
-  #translate-progress.active {
-    opacity: 1;
-    animation: progress-fill 2.5s ease-out forwards;
-  }
-  @keyframes progress-fill {
-    0%   { width: 0%; opacity: 1; }
-    80%  { width: 88%; opacity: 1; }
-    100% { width: 88%; opacity: 1; }
-  }
-  #translate-progress.done {
-    animation: none;
-    width: 100%;
-    opacity: 0;
-    transition: width 0.2s ease, opacity 0.4s ease 0.1s;
-  }
+  #translate-progress { position: absolute; bottom: 0; left: 0; height: 3px; width: 0%; background: var(--accent); border-radius: 0 0 0 9px; transition: width 0.1s linear; opacity: 0; }
+  #translate-progress.active { opacity: 1; animation: progress-fill 2.0s ease-out forwards; }
+  @keyframes progress-fill { 0% { width: 0%; opacity: 1; } 100% { width: 90%; opacity: 1; } }
+  #translate-progress.done { animation: none; width: 100%; opacity: 0; transition: width 0.2s ease, opacity 0.4s ease 0.1s; }
 
-
-  /* ── MOBILE (폰: 보기 전용) ── */
-  @media (max-width: 768px) {
-    .panel-left, .panel-right { display: none; }
-    .panel-center { width: 100%; }
-    .input-area { padding: 8px 10px; }
-    #msg-input { font-size: 14px; }
-    .text-source { font-size: 14px !important; }
-    .topbar { padding: 8px 10px; gap: 6px; height: auto; flex-wrap: wrap; }
-    .topbar-right { width: 100%; justify-content: flex-end; }
-    .pills { flex-wrap: wrap; }
-    .logo { font-size: 14px; }
-    .btn { font-size: 11px; padding: 5px 10px; }
-    /* 모바일 안내 배너 */
-    .mobile-banner {
-      display: flex !important;
-      background: #1e2538;
-      border-bottom: 1px solid #2a3248;
-      padding: 6px 12px;
-      font-size: 11px;
-      color: #6b7492;
-      align-items: center;
-      gap: 6px;
-    }
-  }
-  @media (min-width: 769px) {
-    .mobile-banner { display: none !important; }
-  }
-  .mobile-banner { display: none; }
-
-
-  /* 복사 버튼 */
-  .copy-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-dim); font-size: 11px; padding: 2px 6px;
-    border-radius: 4px; transition: all 0.15s; white-space: nowrap;
-  }
-  .copy-btn:hover { background: var(--bg3); color: var(--text); }
-  .copy-btn.copied { color: var(--accent-ok); }
-  .entry-actions { display: flex; gap: 4px; margin-top: 6px; justify-content: flex-end; }
-
-
-  /* ── 참조문서 패널 ── */
-  .ctx-btn {
-    border-color: #f9d44f; color: #f9d44f;
-  }
-  .ctx-btn:hover { background: rgba(249,212,79,0.1); }
-  .ctx-btn.active { background: rgba(249,212,79,0.15); }
-
-  .ctx-panel {
-    position: fixed; top: 50px; right: 0;
-    width: 340px; max-height: calc(100vh - 50px);
-    background: var(--bg2); border-left: 1px solid #f9d44f;
-    display: flex; flex-direction: column;
-    z-index: 200; overflow: hidden;
-    transform: translateX(100%);
-    transition: transform 0.25s ease;
-  }
+  /* 참조문서 */
+  .ctx-btn { border-color: #f9d44f; color: #f9d44f; }
+  .ctx-panel { position: fixed; top: 50px; right: 0; width: 340px; max-height: calc(100vh - 50px); background: var(--bg2); border-left: 1px solid #f9d44f; display: flex; flex-direction: column; z-index: 200; overflow: hidden; transform: translateX(100%); transition: transform 0.25s ease; }
   .ctx-panel.open { transform: translateX(0); }
-
-  .ctx-panel-header {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px; font-weight: 600;
-    color: #f9d44f; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .ctx-close {
-    background: none; border: none; color: var(--text-dim);
-    font-size: 16px; cursor: pointer; padding: 0 4px;
-  }
-  .ctx-close:hover { color: var(--text); }
-
-  .ctx-doc-list {
-    flex: 1; overflow-y: auto; padding: 10px;
-    min-height: 0;
-  }
-  .ctx-doc-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 10px; border-radius: 7px;
-    background: var(--bg3); border: 1px solid var(--border);
-    margin-bottom: 6px;
-  }
-  .ctx-doc-info { flex: 1; min-width: 0; }
-  .ctx-doc-name {
-    font-size: 12px; font-weight: 500; color: var(--text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .ctx-doc-size { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-  .ctx-doc-del {
-    background: none; border: none; color: var(--text-dim);
-    cursor: pointer; font-size: 14px; padding: 2px 6px;
-    flex-shrink: 0;
-  }
-  .ctx-doc-del:hover { color: #f94f5a; }
-
-  .ctx-empty {
-    text-align: center; color: var(--text-dim);
-    font-size: 12px; padding: 20px; line-height: 1.7;
-  }
-
-  .ctx-add-area {
-    padding: 10px; border-top: 1px solid var(--border); flex-shrink: 0;
-  }
-  .ctx-add-btn {
-    width: 100%; padding: 9px;
-    border-radius: 7px; border: 1px dashed #f9d44f;
-    background: transparent; color: #f9d44f;
-    font-size: 12px; cursor: pointer; font-family: inherit;
-    transition: all 0.15s;
-  }
-  .ctx-add-btn:hover { background: rgba(249,212,79,0.08); }
-  .ctx-notice {
-    font-size: 10px; color: var(--text-dim);
-    text-align: center; margin-top: 6px; line-height: 1.5;
-  }
+  .ctx-panel-header { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: #f9d44f; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+  .ctx-doc-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 7px; background: var(--bg3); border: 1px solid var(--border); margin-bottom: 6px; }
+  .ctx-add-area { padding: 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .ctx-add-btn { width: 100%; padding: 9px; border-radius: 7px; border: 1px dashed #f9d44f; background: transparent; color: #f9d44f; font-size: 12px; cursor: pointer; transition: all 0.15s; }
   #ctx-file-input { display: none; }
 
-  @media (max-width: 768px) {
-    .ctx-panel { width: 100%; }
-    .ctx-btn { display: none; }
-  }
-
-  /* ── TOAST ── */
-  .toast-container {
-    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    z-index: 1000; display: flex; flex-direction: column; align-items: center;
-    gap: 5px; pointer-events: none;
-  }
-  .toast {
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text);
-    animation: toast-in 0.2s ease; pointer-events: none;
-  }
+  .toast-container { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .toast { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text); animation: toast-in 0.2s ease; }
   .toast.ok  { border-color: var(--accent-ok); color: var(--accent-ok); }
   .toast.err { border-color: #f94f5a; color: #f94f5a; }
-  @keyframes toast-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; } }
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
 <div class="topbar">
-  <!-- 좌: 삼안 로고 -->
   <img src="/static/saman_logo.png" alt="Saman" class="header-logo">
 
-  <!-- 중앙: 타이틀 + 상태 pills -->
   <div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:center">
-    <div class="logo"><span class="ko">한국어</span> · <span class="lo">ລາວ</span></div>
+    <div class="logo"><span class="ko">한국어</span> · <span class="en">English</span></div>
     <div class="pills">
-      <div class="pill" id="pill-ws">연결 중</div>
+      <div class="pill" id="pill-ws">Connecting...</div>
       <div class="pill" id="pill-claude">Claude ...</div>
-      <div class="pill" id="pill-users">참가자 0</div>
+      <div class="pill" id="pill-users">Participants 0</div>
       <div class="pill" id="pill-ctx" style="display:none"></div>
     </div>
   </div>
 
-  <!-- 우: 버튼 + 라오스 국장 -->
   <div style="display:flex;align-items:center;gap:8px">
     <div class="topbar-right" id="topbar-btns" style="display:none">
-      <button class="btn ctx-btn" id="ctx-toggle-btn" onclick="toggleCtxPanel()">📎 참조문서</button>
-    <button class="btn ok" onclick="downloadMinutes('all')">📄 전체</button>
-    <button class="btn ok" onclick="downloadMinutes('ko')">🇰🇷 한글</button>
-    <button class="btn ok" onclick="downloadMinutes('lo')">🇱🇦 라오스</button>
-    <button class="btn" id="summary-btn" onclick="generateSummary()" style="border-color:#a78bfa;color:#a78bfa">✨ 요약</button>
-    <button class="btn" onclick="clearMeeting()">🗑 초기화</button>
+      <button class="btn ctx-btn" id="ctx-toggle-btn" onclick="toggleCtxPanel()">📎 Glossary Docs</button>
+      <button class="btn ok" onclick="downloadMinutes('all')">📄 Full Saved</button>
+      <button class="btn ok" onclick="downloadMinutes('ko')">🇰🇷 한글본</button>
+      <button class="btn ok" onclick="downloadMinutes('en')">🇺🇸 English</button>
+      <button class="btn" id="summary-btn" onclick="generateSummary()" style="border-color:#a78bfa;color:#a78bfa">✨ AI Summary</button>
+      <button class="btn" onclick="clearMeeting()">🗑 Clear</button>
     </div>
-    <img src="/static/laos_emblem.svg" alt="Laos" class="header-logo-laos">
+    <img src="https://flagcdn.com/w40/us.png" alt="US" class="header-logo-flag">
   </div>
 </div>
 
-<!-- SETUP SCREEN -->
 <div id="setup-screen">
-  <div class="setup-title">🌏 한국-라오스 회의 통번역</div>
-  <div class="setup-sub">역할을 선택하세요</div>
+  <div class="setup-title">🌏 KO-EN Real-time Translation System</div>
+  <div class="setup-sub">Select your team role</div>
   <div class="setup-meeting-row">
-    <label style="font-size:13px;color:var(--text-dim)">회의명:</label>
-    <input class="setup-input" id="meeting-id-input" value="meeting1" placeholder="회의명">
+    <label style="font-size:13px;color:var(--text-dim)">Meeting ID:</label>
+    <input class="setup-input" id="meeting-id-input" value="meeting1">
   </div>
   <div class="setup-row">
     <div class="role-card ko" onclick="joinAs('korean')">
       <div class="icon">🇰🇷</div>
-      <div class="name">한국팀</div>
-      <div class="desc">한글 입력<br>라오스어로 번역</div>
+      <div class="name">Korean Team</div>
+      <div class="desc">Input Korean<br>Translate to English</div>
     </div>
-    <div class="role-card lo" onclick="joinAs('laos')">
-      <div class="icon">🇱🇦</div>
-      <div class="name">ລາວ ທີມ</div>
-      <div class="desc">ລາວ ພາສາ ປ້ອນ<br>ແປເປັນ ເກົາຫຼີ</div>
+    <div class="role-card en" onclick="joinAs('english')">
+      <div class="icon">🇺🇸</div>
+      <div class="name">English Team</div>
+      <div class="desc">Input English<br>Translate to Korean</div>
     </div>
   </div>
 </div>
 
-<!-- APP SCREEN -->
 <div id="app-screen">
-  <div class="mobile-banner">
-    📱 모바일 보기 모드 — 회의록/코멘트 패널은 PC에서 확인하세요
-  </div>
   <div class="app-body">
-
-    <!-- LEFT: 회의록 목록 -->
     <div class="panel-left">
-      <div class="panel-header">📋 회의록</div>
+      <div class="panel-header">📋 Saved Transcripts</div>
       <div class="minutes-list" id="minutes-list">
-        <div class="minutes-empty">회의 종료 후<br>저장된 회의록이<br>여기에 표시됩니다</div>
+        <div class="minutes-empty">Logs will appear here after download</div>
       </div>
     </div>
 
-    <!-- CENTER: 대화 -->
     <div class="panel-center">
-      <!-- Input -->
       <div class="input-area">
         <div class="speaker-row">
-          <label>발언자:</label>
-          <input type="text" id="speaker-input" placeholder="이름 (선택)">
+          <label>Speaker:</label>
+          <input type="text" id="speaker-input" placeholder="Name (Optional)">
         </div>
         <div class="input-row">
-          <textarea id="msg-input" rows="1"
-            placeholder="입력 후 Enter..."
-            onkeydown="onInputKey(event)"
-            oninput="autoResize(this)"></textarea>
+          <textarea id="msg-input" rows="1" placeholder="Type and press Enter..." onkeydown="onInputKey(event)" oninput="autoResize(this)"></textarea>
           <button class="send-btn" onclick="sendMessage()">→</button>
         </div>
         <div id="translate-progress"></div>
       </div>
 
-      <!-- Transcript -->
       <div class="transcript-wrap" id="transcript">
         <div class="empty-state" id="empty-state">
           <div class="icon">💬</div>
-          <p>입력하면 상대방 화면에<br>실시간으로 전달됩니다</p>
+          <p>Messages will be shared in real-time.</p>
         </div>
       </div>
 
-      <!-- Status bar -->
       <div class="statusbar">
         <span id="sb-role"></span>
         <span id="sb-meeting"></span>
-        <span id="sb-count">대화 0건</span>
+        <span id="sb-count">0 items</span>
       </div>
     </div>
 
-    <!-- RIGHT: 통역사 코멘트 -->
     <div class="panel-right">
-      <div class="panel-header">✏️ 통역사 코멘트</div>
+      <div class="panel-header">✏️ Interpreter Notes</div>
       <div class="comments-list" id="comments-list">
-        <div class="comments-empty" id="comments-empty">
-          대화 항목을 클릭하면<br>해당 발언에 코멘트를<br>추가할 수 있습니다
-        </div>
+        <div class="comments-empty">Click an item to add side notes</div>
       </div>
       <div class="comment-input-area">
-        <div class="comment-ref-label" id="comment-ref-label">항목을 선택하세요</div>
-        <textarea id="comment-input" placeholder="코멘트 입력 (Enter: 전송)"
-          onkeydown="onCommentKey(event)"></textarea>
-        <button class="comment-send-btn" onclick="addComment()">✓ 코멘트 추가</button>
+        <div class="comment-ref-label" id="comment-ref-label">Select an item</div>
+        <textarea id="comment-input" placeholder="Add note (Enter to send)" onkeydown="onCommentKey(event)"></textarea>
+        <button class="comment-send-btn" onclick="addComment()">✓ Add Note</button>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- 참조문서 패널 -->
 <div class="ctx-panel" id="ctx-panel">
   <div class="ctx-panel-header">
-    📎 참조문서
-    <button class="ctx-close" onclick="toggleCtxPanel()">✕</button>
+    📎 Reference Materials
+    <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;" onclick="toggleCtxPanel()">✕</button>
   </div>
   <div class="ctx-doc-list" id="ctx-doc-list">
-    <div class="ctx-empty" id="ctx-empty">
-      문서를 추가하면<br>번역 시 자동으로 참조합니다<br><br>
-      사업개요, 이전회의록,<br>전문용어집 등
-    </div>
+    <div class="ctx-empty">Add glossary or brief documents for engine reference.</div>
   </div>
   <div class="ctx-add-area">
     <input type="file" id="ctx-file-input" accept=".txt,.md" multiple onchange="onCtxFileSelect(event)">
-    <button class="ctx-add-btn" onclick="document.getElementById('ctx-file-input').click()">
-      + 파일 추가 (.txt)
-    </button>
-    <div class="ctx-notice">추가한 문서는 이 세션에서만 유효합니다<br>회의 재시작 시 다시 추가 필요</div>
+    <button class="ctx-add-btn" onclick="document.getElementById('ctx-file-input').click()">+ Add Document (.txt)</button>
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
 
 <script>
@@ -631,45 +332,20 @@ const S = {
   myLang: null,
   entryCount: 0,
   connected: false,
-  selectedEntryId: null,   // 코멘트 대상 entry
-  comments: [],            // [{entryId, text, time}]
-  savedMinutes: [],        // 저장된 회의록 목록 (로컬)
+  selectedEntryId: null,
+  comments: [],
 };
 
-// ── URL params ─────────────────────────────────────────────────────
-function getParam(n) { return new URLSearchParams(location.search).get(n); }
-
-function init() {
-  const urlRole    = getParam('role');
-  const urlMeeting = getParam('meeting');
-  if (urlRole) {
-    // meeting 값을 input에 먼저 세팅 후 joinAs 호출
-    const meetingVal = urlMeeting || 'meeting1';
-    document.getElementById('meeting-id-input').value = meetingVal;
-    // DOM 업데이트 보장 후 실행
-    setTimeout(() => joinAs(urlRole), 0);
-    return;
-  }
-  fetch('/api/status').then(r=>r.json()).then(d=>{
-    setPill('pill-claude', d.anthropic ? 'Claude ✓' : 'Claude 키 없음', d.anthropic?'ok':'err');
-  }).catch(()=>{});
-}
-
-// ── Join ───────────────────────────────────────────────────────────
 function joinAs(role) {
   const meetingId = document.getElementById('meeting-id-input').value.trim() || 'meeting1';
-  S.role     = role;
+  S.role = role;
   S.meetingId = meetingId;
-  S.myLang   = role === 'korean' ? 'ko' : 'lo';
+  S.myLang = role === 'korean' ? 'ko' : 'en';
 
-  document.documentElement.style.setProperty(
-    '--accent', role === 'korean' ? 'var(--accent-ko)' : 'var(--accent-lo)'
-  );
-  document.getElementById('msg-input').placeholder =
-    role === 'korean' ? '한글 입력 후 Enter...' : 'ພິມລາວ ແລ້ວ Enter...';
-  document.getElementById('sb-role').textContent =
-    role === 'korean' ? '역할: 🇰🇷 한국팀' : 'ບົດບາດ: 🇱🇦 ລາວ';
-  document.getElementById('sb-meeting').textContent = '회의: ' + meetingId;
+  document.documentElement.style.setProperty('--accent', role === 'korean' ? 'var(--accent-ko)' : 'var(--accent-en)');
+  document.getElementById('msg-input').placeholder = role === 'korean' ? '한글 입력 후 Enter...' : 'Type English and Enter...';
+  document.getElementById('sb-role').textContent = role === 'korean' ? 'Role: 🇰🇷 Korean' : 'Role: 🇺🇸 English';
+  document.getElementById('sb-meeting').textContent = 'Meeting: ' + meetingId;
 
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('app-screen').classList.add('active');
@@ -678,622 +354,103 @@ function joinAs(role) {
   connectSocket();
 }
 
-// ── Socket ─────────────────────────────────────────────────────────
 function connectSocket() {
   S.socket = io({ transports: ['websocket', 'polling'] });
 
   S.socket.on('connect', () => {
     S.connected = true;
-    setPill('pill-ws', '실시간연결 ✓', 'ok');
+    document.getElementById('pill-ws').textContent = 'Connected ✓';
+    document.getElementById('pill-ws').className = 'pill ok';
     S.socket.emit('join', { meeting_id: S.meetingId, role: S.role });
   });
-  S.socket.on('disconnect', () => {
-    S.connected = false;
-    setPill('pill-ws', '연결 끊김', 'err');
-  });
-  S.socket.on('connect_error', () => setPill('pill-ws', '연결 실패', 'err'));
 
   S.socket.on('joined', data => {
-    setPill('pill-users', '참가자 ' + data.user_count + '명', 'ok');
-    fetch('/api/status').then(r=>r.json()).then(d=>{
-      setPill('pill-claude', d.anthropic ? 'Claude ✓' : 'Claude 키 없음', d.anthropic?'ok':'err');
-    });
-    if (data.history && data.history.length > 0) {
-      data.history.forEach(e => renderEntry(e, e.source_lang === S.myLang));
-    }
-    showToast('입장 완료 — ' + data.meeting_id, 'ok');
-    // 서버에 이미 등록된 참조문서 복원
-    if (data.context_docs && data.context_docs.length > 0) {
-      renderCtxDocs(data.context_docs);
-    }
-  });
-  S.socket.on('user_joined', data => {
-    setPill('pill-users', '참가자 ' + data.user_count + '명', 'ok');
-    showToast((data.role==='korean'?'🇰🇷 한국팀':'🇱🇦 ລາວ') + ' 입장', '');
-  });
-  S.socket.on('user_left', data => {
-    setPill('pill-users', '참가자 ' + data.user_count + '명', data.user_count>0?'ok':'warn');
-  });
-  // 원문 즉시 표시 (양쪽 화면)
-  S.socket.on('message_pending', entry => {
-    const isMine = entry.source_lang === S.myLang;
-    if (isMine) {
-      // 내 로컬 pending 항목 교체 (이미 showPendingEntry로 표시돼 있음)
-      document.getElementById('pending-entry')?.remove();
-    }
-    renderEntry(entry, isMine, true); // true = pending 상태
-    updateCount();
+    document.getElementById('pill-users').textContent = 'Participants: ' + data.user_count;
+    if (data.history) data.history.forEach(e => renderEntry(e, e.source_lang === S.myLang));
+    if (data.context_docs) renderCtxDocs(data.context_docs);
   });
 
-  // 번역 완료 — 원문 항목을 번역 포함 버전으로 교체
+  S.socket.on('message_pending', entry => {
+    if (entry.source_lang === S.myLang) document.getElementById('pending-entry')?.remove();
+    renderEntry(entry, entry.source_lang === S.myLang, true);
+  });
+
   S.socket.on('message_done', entry => {
-    const isMine = entry.source_lang === S.myLang;
-    if (isMine) doneProgress();
-    // 기존 pending 렌더링 항목 교체
+    if (entry.source_lang === S.myLang) {
+      document.getElementById('translate-progress').className = 'done';
+    }
     const existing = document.getElementById('entry-' + entry.id);
     if (existing) {
-      const wrap = document.getElementById('transcript');
-      const wasAtBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 60;
-      const newEl = buildEntryEl(entry, isMine, false);
-      existing.replaceWith(newEl);
-      if (wasAtBottom) wrap.scrollTop = wrap.scrollHeight;
-    } else {
-      renderEntry(entry, isMine, false);
-    }
-  });
-  S.socket.on('context_updated', data => {
-    renderCtxDocs(data.docs);
-    if (data.docs.length > 0) {
-      showToast('참조문서 업데이트됨 (' + data.docs.length + '건)', '');
+      existing.replaceWith(buildEntryEl(entry, entry.source_lang === S.myLang, false));
     }
   });
 
-  S.socket.on('meeting_cleared', () => {
-    clearTranscript();
-    S.comments = [];
-    renderComments();
-    showToast('회의 초기화됨', '');
-  });
+  S.socket.on('context_updated', data => renderCtxDocs(data.docs));
+  S.socket.on('meeting_cleared', () => { location.reload(); });
 }
 
-// ── Send ───────────────────────────────────────────────────────────
 function sendMessage() {
   const input = document.getElementById('msg-input');
-  const text  = input.value.trim();
+  const text = input.value.trim();
   if (!text || !S.connected) return;
   const speaker = document.getElementById('speaker-input').value.trim();
 
-  // 즉시 원문 표시 (번역 대기 상태)
-  showPendingEntry(text, speaker);
-
-  // progress bar 시작
-  startProgress();
-
-  S.socket.emit('send_message', {
-    meeting_id: S.meetingId,
-    source_lang: S.myLang,
-    source_text: text,
-    speaker: speaker
-  });
-  input.value = '';
-  input.style.height = 'auto';
-}
-
-function startProgress() {
-  const bar = document.getElementById('translate-progress');
-  bar.className = '';
-  void bar.offsetWidth; // reflow
-  bar.className = 'active';
-}
-function doneProgress() {
-  const bar = document.getElementById('translate-progress');
-  bar.className = 'done';
-  setTimeout(() => { bar.className = ''; }, 600);
-}
-
-// 원문만 먼저 표시 (번역 pending)
-function showPendingEntry(text, speaker) {
   document.getElementById('empty-state')?.remove();
-  const wrap = document.getElementById('transcript');
-  const pendingId = 'pending-entry';
-  document.getElementById(pendingId)?.remove();
+  document.getElementById('translate-progress').className = 'active';
 
-  const el = document.createElement('div');
-  el.id = pendingId;
-  el.className = 'entry mine';
-  const langLabel = S.myLang === 'ko' ? '한국어' : 'ລາວ';
-  const targetLabel = S.myLang === 'ko' ? 'ແປ (ລາວ)' : '번역 (한국어)';
-  const speakerHtml = speaker ? '<div class="speaker-name">👤 ' + escHtml(speaker) + '</div>' : '';
-  el.innerHTML =
-    '<div class="entry-meta">' +
-      '<span class="entry-time">' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '</span>' +
-      '<span class="lang-badge ' + S.myLang + '">' + langLabel + '</span>' +
-      '<span class="mine-tag">전송 중...</span>' +
-    '</div>' +
-    speakerHtml +
-    '<div class="text-source">' + escHtml(text) + '</div>' +
-    '<div class="divider">' + targetLabel + '</div>' +
-    '<div class="translating"><div class="spinner"></div> 번역 중...</div>';
-  wrap.appendChild(el);
-  wrap.scrollTop = wrap.scrollHeight;
+  S.socket.emit('send_message', { meeting_id: S.meetingId, source_lang: S.myLang, source_text: text, speaker: speaker });
+  input.value = '';
 }
 
-function onInputKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-}
-
-// ── Render entry ───────────────────────────────────────────────────
 function buildEntryEl(entry, isMine, isPending) {
   const el = document.createElement('div');
   el.className = 'entry ' + (isMine ? 'mine' : 'theirs');
   el.id = 'entry-' + entry.id;
-  el.style.cursor = 'pointer';
 
-  const langLabel   = entry.source_lang === 'ko' ? '한국어' : 'ລາວ';
-  const targetLabel = (entry.target_lang || (entry.source_lang === 'ko' ? 'lo' : 'ko')) === 'ko'
-    ? '번역 (한국어)' : 'ແປ (ລາວ)';
-  const speakerHtml = entry.speaker
-    ? '<div class="speaker-name">👤 ' + escHtml(entry.speaker) + '</div>' : '';
+  const langLabel = entry.source_lang === 'ko' ? '한국어' : 'English';
+  const targetLabel = entry.source_lang === 'ko' ? 'Translation (English)' : '번역 (한국어)';
+  const transHtml = isPending ? '<div class="translating"><div class="spinner"></div> Translating...</div>' : '<div class="text-translated">' + entry.translated_text + '</div>';
 
-  let transHtml;
-  if (isPending || entry.translated_text === null) {
-    transHtml = '<div class="translating"><div class="spinner"></div> 번역 중...</div>';
-  } else if (entry.error) {
-    transHtml = '<div class="err-text">번역 실패: ' + escHtml(entry.error) + '</div>';
-  } else {
-    transHtml = '<div class="text-translated">' + escHtml(entry.translated_text) + '</div>';
-  }
-
-  el.innerHTML =
-    '<div class="entry-meta">' +
-      '<span class="entry-time">' + entry.time + '</span>' +
-      '<span class="lang-badge ' + entry.source_lang + '">' + langLabel + '</span>' +
-      '<span class="entry-id">#' + entry.id + '</span>' +
-      (isMine ? '<span class="mine-tag">내 발언</span>' : '') +
-    '</div>' +
-    speakerHtml +
-    '<div class="text-source">' + escHtml(entry.source_text) + '</div>' +
-    '<div class="divider">' + targetLabel + '</div>' +
-    transHtml;
-
-  el.addEventListener('click', () => selectEntry(entry.id, entry.source_text));
-
-  // 복사 버튼
-  const actions = document.createElement('div');
-  actions.className = 'entry-actions';
-
-  const btnSrc = document.createElement('button');
-  btnSrc.className = 'copy-btn';
-  btnSrc.textContent = '📋 원문';
-  btnSrc.onclick = (e) => { e.stopPropagation(); copyText(btnSrc, entry.source_text); };
-  actions.appendChild(btnSrc);
-
-  if (!isPending && entry.translated_text) {
-    const btnTrans = document.createElement('button');
-    btnTrans.className = 'copy-btn';
-    btnTrans.textContent = '📋 번역';
-    btnTrans.onclick = (e) => { e.stopPropagation(); copyText(btnTrans, entry.translated_text); };
-    actions.appendChild(btnTrans);
-
-    const btnBoth = document.createElement('button');
-    btnBoth.className = 'copy-btn';
-    btnBoth.textContent = '📋 전체';
-    btnBoth.onclick = (e) => {
-      e.stopPropagation();
-      copyText(btnBoth, entry.source_text + '\n' + entry.translated_text);
-    };
-    actions.appendChild(btnBoth);
-  }
-  el.appendChild(actions);
-
+  el.innerHTML = `
+    <div class="entry-meta">
+      <span class="entry-time">${entry.time}</span>
+      <span class="lang-badge ${entry.source_lang}">${langLabel}</span>
+      <span class="entry-id">#${entry.id}</span>
+    </div>
+    <div class="text-source">${entry.source_text}</div>
+    <div class="divider">${targetLabel}</div>
+    ${transHtml}
+  `;
+  el.onclick = () => { S.selectedEntryId = entry.id; document.getElementById('comment-ref-label').textContent = '#' + entry.id + ' Selected'; };
   return el;
 }
 
 function renderEntry(entry, isMine, isPending) {
   document.getElementById('empty-state')?.remove();
-  const wrap = document.getElementById('transcript');
-  const el = buildEntryEl(entry, isMine, isPending);
-  wrap.appendChild(el);
-  wrap.scrollTop = wrap.scrollHeight;
+  document.getElementById('transcript').appendChild(buildEntryEl(entry, isMine, isPending));
+  document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
   S.entryCount++;
+  document.getElementById('sb-count').textContent = S.entryCount + ' items';
 }
 
+function onInputKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+function toggleCtxPanel() { document.getElementById('ctx-panel').classList.toggle('open'); }
 
-// ── Copy ──────────────────────────────────────────────────────────
-function copyText(btn, text) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓ 복사됨';
-    btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = orig;
-      btn.classList.remove('copied');
-    }, 1500);
-  }).catch(() => {
-    // clipboard API 실패 시 fallback
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-    btn.textContent = '✓ 복사됨';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = btn.textContent.includes('원문') ? '📋 원문' : btn.textContent.includes('번역') ? '📋 번역' : '📋 전체'; btn.classList.remove('copied'); }, 1500);
-  });
-}
-
-// ── Comment ────────────────────────────────────────────────────────
-function selectEntry(id, text) {
-  // 기존 선택 해제
-  document.querySelectorAll('.entry').forEach(e => e.style.outline = '');
-  const el = document.getElementById('entry-' + id);
-  if (el) el.style.outline = '2px solid var(--accent-ok)';
-
-  S.selectedEntryId = id;
-  const short = text.length > 20 ? text.slice(0, 20) + '...' : text;
-  document.getElementById('comment-ref-label').textContent = '#' + id + ': ' + short;
-  document.getElementById('comment-input').focus();
-}
-
-function addComment() {
-  const input = document.getElementById('comment-input');
-  const text  = input.value.trim();
-  if (!text) { showToast('코멘트를 입력하세요', ''); return; }
-
-  const comment = {
-    entryId: S.selectedEntryId,
-    text: text,
-    time: new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'})
-  };
-  S.comments.push(comment);
-  input.value = '';
-  renderComments();
-  showToast('코멘트 추가됨', 'ok');
-}
-
-function onCommentKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); }
-}
-
-function renderComments() {
-  const list = document.getElementById('comments-list');
-  if (S.comments.length === 0) {
-    list.innerHTML = '<div class="comments-empty" id="comments-empty">대화 항목을 클릭하면<br>해당 발언에 코멘트를<br>추가할 수 있습니다</div>';
-    return;
-  }
-  list.innerHTML = '';
-  S.comments.forEach(c => {
-    const el = document.createElement('div');
-    el.className = 'comment-item';
-    el.innerHTML =
-      '<div class="comment-ref">' + (c.entryId ? '#' + c.entryId + ' 에 대해' : '전체') + '</div>' +
-      '<div class="comment-text">' + escHtml(c.text) + '</div>' +
-      '<div class="comment-time">' + c.time + '</div>';
-    list.appendChild(el);
-  });
-  list.scrollTop = list.scrollHeight;
-}
-
-// ── Minutes ────────────────────────────────────────────────────────
 async function downloadMinutes(lang) {
-  try {
-    const res = await fetch('/api/minutes/' + encodeURIComponent(S.meetingId));
-    if (!res.ok) { showToast('회의록 없음', 'err'); return; }
-    const data = await res.json();
-
-    let text, suffix;
-    if (lang === 'ko') {
-      text = formatMinutesKo(data);
-      suffix = '_한글';
-    } else if (lang === 'lo') {
-      text = formatMinutesLo(data);
-      suffix = '_라오스';
-    } else {
-      text = formatMinutes(data);
-      suffix = '_전체';
-    }
-
-    const ts = new Date().toISOString().slice(0,19).replace(/:/g,'-');
-    const filename = S.meetingId + suffix + '_' + ts + '.txt';
-
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-
-    addToMinutesList(S.meetingId + suffix, data.entry_count, filename, '', text);
-    showToast('저장: ' + filename, 'ok');
-
-    fetch('/api/save_minutes', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ meeting_id: S.meetingId + suffix, content: text })
-    }).catch(() => {});
-  } catch(e) {
-    showToast('저장 실패: ' + e.message, 'err');
-  }
+  const res = await fetch('/api/minutes/' + encodeURIComponent(S.meetingId));
+  const data = await res.json();
+  let txt = `Meeting log: ${data.meeting_id}\n\n`;
+  data.entries.forEach(e => { txt += `[${e.time}] ${e.source_lang.toUpperCase()}: ${e.source_text}\n -> ${e.translated_text}\n\n`; });
+  
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${S.meetingId}_transcript.txt`;
+  a.click();
 }
 
-function formatMinutes(data) {
-  const now = new Date().toLocaleString('ko-KR');
-  let txt = '================================================\n';
-  txt += '회의록: ' + data.meeting_id + '\n';
-  txt += '저장: ' + now + '\n';
-  txt += '총 발언: ' + data.entry_count + '건\n';
-  txt += '================================================\n\n';
-
-  for (const e of data.entries) {
-    const from    = e.source_lang === 'ko' ? '[한국]' : '[라오스]';
-    const speaker = e.speaker ? ' (' + e.speaker + ')' : '';
-    txt += '[' + e.time + '] ' + from + speaker + '\n';
-    txt += '  원문: ' + e.source_text + '\n';
-    txt += '  번역: ' + (e.translated_text || '(없음)') + '\n';
-
-    // 이 항목에 달린 코멘트
-    const myComments = S.comments.filter(c => c.entryId === e.id);
-    if (myComments.length > 0) {
-      txt += '  [통역사 코멘트]\n';
-      myComments.forEach(c => { txt += '    - ' + c.text + '\n'; });
-    }
-    txt += '\n';
-  }
-
-  if (S.comments.filter(c => !c.entryId).length > 0) {
-    txt += '------------------------------------------------\n';
-    txt += '[통역사 전체 코멘트]\n';
-    S.comments.filter(c => !c.entryId).forEach(c => { txt += '  - ' + c.text + '\n'; });
-  }
-  return txt;
-}
-
-function formatMinutesKo(data) {
-  const now = new Date().toLocaleString('ko-KR');
-  let txt = '================================================\n';
-  txt += '회의록 (한글): ' + data.meeting_id + '\n';
-  txt += '저장: ' + now + '\n';
-  txt += '================================================\n\n';
-  for (const e of data.entries) {
-    const speaker = e.speaker ? ' (' + e.speaker + ')' : '';
-    // 한국어 원문 or 라오스어의 한글 번역
-    const koText = e.source_lang === 'ko' ? e.source_text : e.translated_text;
-    if (!koText) continue;
-    const from = e.source_lang === 'ko' ? '[한국]' : '[라오스→한국]';
-    txt += '[' + e.time + '] ' + from + speaker + '\n';
-    txt += '  ' + koText + '\n';
-    const myComments = S.comments.filter(c => c.entryId === e.id);
-    if (myComments.length > 0) {
-      txt += '  [통역사 코멘트]\n';
-      myComments.forEach(c => { txt += '    - ' + c.text + '\n'; });
-    }
-    txt += '\n';
-  }
-  return txt;
-}
-
-function formatMinutesLo(data) {
-  const now = new Date().toLocaleString('ko-KR');
-  let txt = '================================================\n';
-  txt += 'ບັນທຶກການປະຊຸມ (ລາວ): ' + data.meeting_id + '\n';
-  txt += '저장: ' + now + '\n';
-  txt += '================================================\n\n';
-  for (const e of data.entries) {
-    const speaker = e.speaker ? ' (' + e.speaker + ')' : '';
-    // 라오스어 원문 or 한국어의 라오스어 번역
-    const loText = e.source_lang === 'lo' ? e.source_text : e.translated_text;
-    if (!loText) continue;
-    const from = e.source_lang === 'lo' ? '[ລາວ]' : '[ເກົາຫຼີ→ລາວ]';
-    txt += '[' + e.time + '] ' + from + speaker + '\n';
-    txt += '  ' + loText + '\n\n';
-  }
-  return txt;
-}
-
-function addToMinutesList(meetingId, count, filename, filepath, textContent) {
-  const list = document.getElementById('minutes-list');
-  list.querySelector('.minutes-empty')?.remove();
-
-  const el = document.createElement('div');
-  el.className = 'minutes-item';
-  el.title = filename;
-  el.innerHTML =
-    '<div class="minutes-date">' + escHtml(filename) + '</div>' +
-    '<div class="minutes-title">' + escHtml(meetingId) + '</div>' +
-    '<div class="minutes-count">' + count + '건 · 클릭해서 보기</div>';
-  el.addEventListener('click', () => {
-    if (filepath) {
-      // 로컬: 노트패드로 열기
-      fetch('/api/open_file', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ filepath: filepath })
-      });
-    } else if (textContent) {
-      // 클라우드: 새 창에서 보기
-      const win = window.open('', '_blank');
-      win.document.write(
-        '<html><head><meta charset="UTF-8"><title>' + escHtml(filename) + '</title>' +
-        '<style>body{background:#0f1117;color:#e8eaf0;font-family:monospace;' +
-        'white-space:pre-wrap;padding:24px;line-height:1.7;font-size:13px;}</style></head>' +
-        '<body>' + escHtml(textContent) + '</body></html>'
-      );
-      win.document.close();
-    }
-  });
-  list.insertBefore(el, list.firstChild);
-}
-
-
-// ── Summary ────────────────────────────────────────────────────────
-async function generateSummary() {
-  const btn = document.getElementById('summary-btn');
-  btn.textContent = '⏳ 요약 중...';
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/summary/' + encodeURIComponent(S.meetingId));
-    if (!res.ok) { showToast('대화 내용 없음', 'err'); return; }
-    const data = await res.json();
-
-    const ts = new Date().toISOString().slice(0,19).replace(/:/g,'-');
-    const filename = S.meetingId + '_요약_' + ts + '.txt';
-
-    // 브라우저 다운로드
-    const blob = new Blob([data.summary], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-
-    addToMinutesList(S.meetingId + '_요약', data.entry_count, filename, '', data.summary);
-    showToast('요약 저장: ' + filename, 'ok');
-
-    // 로컬 서버면 파일도 저장
-    fetch('/api/save_minutes', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ meeting_id: S.meetingId + '_요약', content: data.summary })
-    }).catch(() => {});
-  } catch(e) {
-    showToast('요약 실패: ' + e.message, 'err');
-  } finally {
-    btn.textContent = '✨ 요약';
-    btn.disabled = false;
-  }
-}
-
-// ── Clear ──────────────────────────────────────────────────────────
-function clearMeeting() {
-  if (!confirm('모든 대화를 초기화하시겠습니까?\n(상대방 화면도 초기화됩니다)')) return;
-  S.socket.emit('clear_meeting', { meeting_id: S.meetingId });
-}
-function clearTranscript() {
-  S.entryCount = 0;
-  document.getElementById('transcript').innerHTML =
-    '<div class="empty-state" id="empty-state">' +
-    '<div class="icon">💬</div>' +
-    '<p>입력하면 상대방 화면에<br>실시간으로 전달됩니다</p></div>';
-  updateCount();
-}
-
-// ── Helpers ────────────────────────────────────────────────────────
-function updateCount() { document.getElementById('sb-count').textContent = '대화 ' + S.entryCount + '건'; }
-function setPill(id, text, cls) {
-  const el = document.getElementById(id);
-  el.textContent = text; el.className = 'pill ' + (cls||'');
-}
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 110) + 'px';
-}
-function escHtml(s) {
-  if (!s) return '';
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── 참조문서 ────────────────────────────────────────────────────────
-const CTX = { docs: [] };  // { name, content, size }
-
-function toggleCtxPanel() {
-  const panel = document.getElementById('ctx-panel');
-  const btn   = document.getElementById('ctx-toggle-btn');
-  const isOpen = panel.classList.toggle('open');
-  btn.classList.toggle('active', isOpen);
-}
-
-function onCtxFileSelect(event) {
-  const files = Array.from(event.target.files);
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const content = e.target.result;
-      addCtxDoc(file.name, content);
-    };
-    reader.readAsText(file, 'utf-8');
-  });
-  event.target.value = '';
-}
-
-async function addCtxDoc(name, content) {
-  // 로컬 상태 업데이트
-  CTX.docs = CTX.docs.filter(d => d.name !== name);
-  CTX.docs.push({ name, content, size: content.length });
-
-  // 서버에 전송
-  try {
-    await fetch('/api/context/' + encodeURIComponent(S.meetingId), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, content })
-    });
-  } catch(e) {
-    showToast('문서 업로드 실패: ' + e.message, 'err');
-    return;
-  }
-  renderCtxDocs();
-  showToast('참조문서 추가: ' + name, 'ok');
-}
-
-async function deleteCtxDoc(name) {
-  CTX.docs = CTX.docs.filter(d => d.name !== name);
-  try {
-    await fetch('/api/context/' + encodeURIComponent(S.meetingId) + '/' + encodeURIComponent(name), {
-      method: 'DELETE'
-    });
-  } catch(e) {}
-  renderCtxDocs();
-}
-
-function renderCtxDocs(serverDocs) {
-  // serverDocs: [{name, size}] 형태 (서버에서 받은 경우)
-  const list = document.getElementById('ctx-doc-list');
-  const docs = serverDocs || CTX.docs;
-
-  if (docs.length === 0) {
-    list.innerHTML =
-      '<div class="ctx-empty" id="ctx-empty">' +
-      '문서를 추가하면<br>번역 시 자동으로 참조합니다<br><br>' +
-      '사업개요, 이전회의록,<br>전문용어집 등</div>';
-    setPill('pill-ctx', '', '');
-    document.getElementById('pill-ctx').style.display = 'none';
-    return;
-  }
-
-  list.innerHTML = '';
-  docs.forEach(doc => {
-    const el = document.createElement('div');
-    el.className = 'ctx-doc-item';
-    const sizeKb = Math.ceil((doc.size || doc.content?.length || 0) / 1000);
-    el.innerHTML =
-      '<div class="ctx-doc-info">' +
-        '<div class="ctx-doc-name">' + escHtml(doc.name) + '</div>' +
-        '<div class="ctx-doc-size">' + sizeKb + 'KB · 번역 참조 중</div>' +
-      '</div>' +
-      '<button class="ctx-doc-del" data-name="' + escHtml(doc.name) + '" onclick="deleteCtxDoc(this.dataset.name)" title="삭제">✕</button>';
-    list.appendChild(el);
-  });
-
-  // pill 업데이트
-  const pill = document.getElementById('pill-ctx');
-  pill.style.display = '';
-  setPill('pill-ctx', '참조 ' + docs.length + '건', 'warn');
-}
-
-function showToast(msg, type) {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = 'toast ' + (type||'');
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 2800);
-}
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key === 's') { e.preventDefault(); downloadMinutes(); }
-});
-
-init();
+function clearMeeting() { S.socket.emit('clear_meeting', { meeting_id: S.meetingId }); }
 </script>
 </body>
 </html>

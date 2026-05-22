@@ -1,9 +1,6 @@
 """
-Laos-Korea Meeting Translator v8
+Korea-English Meeting Translator v1.0 (Refactored from Laos-Korea v8)
 """
-
-import eventlet
-eventlet.monkey_patch()
 
 import os
 import subprocess
@@ -15,11 +12,11 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import anthropic
 
 app = Flask(__name__, static_folder="static")
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "laos-korea-meeting-2025")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "ko-en-meeting-2026")
 CORS(app, resources={r"/*": {"origins": "*"}})
-# Render(클라우드)에서는 eventlet, 로컬에서는 threading
-_async_mode = "eventlet" if os.environ.get("RENDER") else "threading"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=_async_mode,
+
+# Render 환경에서 복잡한 eventlet 워커 호환성 문제를 피하기 위해 내장 threading 모드 최적화 구동
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading",
                     ping_timeout=60, ping_interval=25)
 
 anthropic_client = None
@@ -48,8 +45,10 @@ def translate(text, source_lang, context_docs=None):
         return {"error": "ANTHROPIC_API_KEY not set",
                 "source_lang": source_lang, "target_lang": "",
                 "source_text": text, "translated_text": ""}
-    target_lang = "lo" if source_lang == "ko" else "ko"
-    lang_names  = {"ko": "Korean", "lo": "Lao"}
+    
+    # 대상을 라오스어(lo)에서 영어(en)로 전면 수정
+    target_lang = "en" if source_lang == "ko" else "ko"
+    lang_names  = {"ko": "Korean", "en": "English"}
 
     # 참조문서 컨텍스트 구성
     context_block = ""
@@ -62,8 +61,9 @@ def translate(text, source_lang, context_docs=None):
             "When translating, prioritize terms and names from these documents.\n"
         )
 
+    # 비즈니스 회의 목적에 맞는 한-영 전문 통역 프롬프트 개조
     prompt = (
-        "You are a professional interpreter for Korean-Lao business meetings.\n"
+        "You are a professional interpreter for Korean-English business meetings.\n"
         + context_block +
         "Translate the following " + lang_names[source_lang] + " text to " + lang_names[target_lang] + ".\n"
         "Output the translation only. No explanation, no quotes, no extra text.\n\n"
@@ -93,7 +93,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"anthropic": anthropic_client is not None, "version": "v8"})
+    return jsonify({"anthropic": anthropic_client is not None, "version": "v1.0_en"})
 
 @app.route("/api/translate", methods=["POST"])
 def api_translate():
@@ -116,7 +116,6 @@ def get_minutes(meeting_id):
         "entries": meeting["entries"]
     })
 
-
 @app.route("/api/context/<meeting_id>", methods=["GET"])
 def get_context(meeting_id):
     meeting = get_or_create_meeting(meeting_id)
@@ -129,19 +128,17 @@ def get_context(meeting_id):
 @app.route("/api/context/<meeting_id>", methods=["POST"])
 def add_context(meeting_id):
     data    = request.get_json()
-    name    = data.get("name", "문서")
+    name    = data.get("name", "Document")
     content_text = data.get("content", "").strip()
     if not content_text:
-        return jsonify({"error": "내용 없음"}), 400
+        return jsonify({"error": "Empty content"}), 400
     meeting = get_or_create_meeting(meeting_id)
-    # 동일 이름 문서 교체
     meeting["context_docs"] = [d for d in meeting["context_docs"] if d["name"] != name]
     meeting["context_docs"].append({"name": name, "content": content_text})
-    # WebSocket으로 참가자 전체에 알림
     socketio.emit("context_updated", {
         "docs": [{"name": d["name"], "size": len(d["content"])} for d in meeting["context_docs"]]
     }, room=meeting_id)
-    print(f"[context] [{meeting_id}] 추가: {name} ({len(content_text)}자)")
+    print(f"[context] [{meeting_id}] Added: {name} ({len(content_text)} chars)")
     return jsonify({"success": True, "doc_count": len(meeting["context_docs"])})
 
 @app.route("/api/context/<meeting_id>/<doc_name>", methods=["DELETE"])
@@ -193,17 +190,17 @@ def get_summary(meeting_id):
     entries = meeting["entries"]
     lines = []
     for e in entries:
-        ko_text = e["translated_text"] if e["source_lang"] == "lo" else e["source_text"]
+        ko_text = e["translated_text"] if e["source_lang"] == "en" else e["source_text"]
         speaker = "[" + e["speaker"] + "] " if e.get("speaker") else ""
         if ko_text:
             lines.append(speaker + ko_text)
     conversation = "\n".join(lines)
     prompt = (
-        "다음은 한국-라오스 비즈니스 회의 내용입니다.\n"
-        "인사말, 감사 표현, 의례적 발언은 제외하고,\n"
-        "실질적으로 논의된 내용, 결정 사항, 확인이 필요한 사항만\n"
-        "간결하게 요약해주세요. 발언자가 있으면 표시해주세요.\n\n"
-        "회의 내용:\n" + conversation
+        "The following is the transcript of a Korea-US business meeting.\n"
+        "Excluding greetings and procedural remarks, please provide a concise summary "
+        "of the practical discussions, decisions made, and items requiring follow-up.\n"
+        "Indicate the speaker if applicable. Please write the summary in Korean.\n\n"
+        "Meeting Transcript:\n" + conversation
     )
     try:
         msg = anthropic_client.messages.create(
@@ -215,8 +212,8 @@ def get_summary(meeting_id):
         now  = datetime.now().strftime("%Y-%m-%d %H:%M")
         full = (
             "================================================\n"
-            "회의 요약: " + meeting_id + "\n"
-            "생성: " + now + "\n"
+            "Meeting Summary: " + meeting_id + "\n"
+            "Generated: " + now + "\n"
             "================================================\n\n"
             + summary_text + "\n"
         )
@@ -224,7 +221,6 @@ def get_summary(meeting_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# 모듈 로드 시 즉시 실행 (gunicorn도 동작)
 init_clients()
 
 # ── SocketIO events ────────────────────────────────────────────────
@@ -271,9 +267,8 @@ def on_send_message(data):
     meeting    = get_or_create_meeting(meeting_id)
     entry_id   = len(meeting["entries"]) + 1
     entry_time = datetime.now().strftime("%H:%M:%S")
-    target_lang = "lo" if source_lang == "ko" else "ko"
+    target_lang = "en" if source_lang == "ko" else "ko"
 
-    # 1단계: 원문 즉시 브로드캐스트 — 이 시점에 서버는 바로 반환
     socketio.emit("message_pending", {
         "id": entry_id, "time": entry_time,
         "source_lang": source_lang, "source_text": source_text,
@@ -281,7 +276,6 @@ def on_send_message(data):
         "speaker": speaker, "error": ""
     }, room=meeting_id)
 
-    # 2단계: 번역을 별도 스레드에서 — 서버가 블로킹되지 않음
     def do_translate():
         context_docs = meeting.get("context_docs", [])
         result = translate(source_text, source_lang, context_docs)
@@ -293,7 +287,6 @@ def on_send_message(data):
             "speaker": speaker, "error": result.get("error", "")
         }
         meeting["entries"].append(entry)
-        # 3단계: 번역 완료 브로드캐스트
         socketio.emit("message_done", entry, room=meeting_id)
 
     threading.Thread(target=do_translate, daemon=True).start()
@@ -305,12 +298,10 @@ def on_clear(data):
         meetings[meeting_id]["entries"] = []
     emit("meeting_cleared", {}, room=meeting_id)
 
-# ── Run ────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     init_clients()
     port = int(os.environ.get("PORT", 5000))
-    print("\nLaos-Korea Meeting Translator v8")
+    print("\nKorea-English Meeting Translator v1.0")
     print("Korean : http://localhost:" + str(port) + "/?role=korean&meeting=meeting1")
-    print("Laos   : http://localhost:" + str(port) + "/?role=laos&meeting=meeting1\n")
+    print("English: http://localhost:" + str(port) + "/?role=english&meeting=meeting1\n")
     socketio.run(app, host="0.0.0.0", port=port, debug=False)
