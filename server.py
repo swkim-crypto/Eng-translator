@@ -304,4 +304,4 @@ if __name__ == "__main__":
     print("\nKorea-English Meeting Translator v1.0")
     print("Korean : http://localhost:" + str(port) + "/?role=korean&meeting=meeting1")
     print("English: http://localhost:" + str(port) + "/?role=english&meeting=meeting1\n")
-    socketio.run(app, host="0.0.0.0", port=port, debug=False)
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
