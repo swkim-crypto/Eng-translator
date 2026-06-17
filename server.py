@@ -19,6 +19,10 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading",
                     ping_timeout=60, ping_interval=25)
 
+# 번역/요약에 사용할 Claude 모델. 모델 은퇴 시 코드 배포 없이 Render 환경변수로 교체 가능.
+# (claude-sonnet-4-20250514 은 2026-06-15 은퇴 → claude-sonnet-4-6 로 이전)
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+
 anthropic_client = None
 meetings = {}
 
@@ -71,7 +75,7 @@ def translate(text, source_lang, context_docs=None):
     )
     try:
         msg = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=CLAUDE_MODEL,
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -204,7 +208,7 @@ def get_summary(meeting_id):
     )
     try:
         msg = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=CLAUDE_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
