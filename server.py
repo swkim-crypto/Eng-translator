@@ -6,7 +6,8 @@ import os
 import subprocess
 import platform
 from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory
+from urllib.parse import quote
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import anthropic
@@ -23,12 +24,22 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading",
 # (claude-sonnet-4-20250514 은 2026-06-15 은퇴 → claude-sonnet-4-6 로 이전)
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 
+# 회의 중 파일 교환 최대 크기(MB). 운영값 하드코딩 회피 + Render RAM 보호.
+MAX_FILE_MB = int(os.environ.get("MAX_FILE_MB", "10"))
+# Flask 레벨에서 초과 업로드를 413으로 차단(멀티파트 오버헤드 여유 1MB).
+app.config["MAX_CONTENT_LENGTH"] = (MAX_FILE_MB + 1) * 1024 * 1024
+
 anthropic_client = None
 meetings = {}
 
 def get_or_create_meeting(meeting_id):
     if meeting_id not in meetings:
-        meetings[meeting_id] = {"entries": [], "users": {}, "context_docs": []}
+        meetings[meeting_id] = {"entries": [], "users": {}, "context_docs": [],
+                                "files": [], "file_seq": 0}
+    # 기존 회의(구버전 구조)에 파일 저장소가 없으면 보강
+    m = meetings[meeting_id]
+    m.setdefault("files", [])
+    m.setdefault("file_seq", 0)
     return meetings[meeting_id]
 
 def init_clients():
@@ -154,6 +165,74 @@ def delete_context(meeting_id, doc_name):
     }, room=meeting_id)
     return jsonify({"success": True})
 
+# ── 회의 중 파일 교환 (인메모리, 최대 MAX_FILE_MB) ──────────────────
+def _files_meta(meeting):
+    return [{"id": f["id"], "name": f["name"], "size": f["size"],
+             "uploader": f.get("uploader", ""), "time": f.get("time", "")}
+            for f in meeting["files"]]
+
+@app.route("/api/files/<meeting_id>", methods=["GET"])
+def list_files(meeting_id):
+    meeting = get_or_create_meeting(meeting_id)
+    return jsonify({"meeting_id": meeting_id, "files": _files_meta(meeting)})
+
+@app.route("/api/files/<meeting_id>", methods=["POST"])
+def upload_file(meeting_id):
+    if "file" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    up = request.files["file"]
+    if not up.filename:
+        return jsonify({"error": "Empty filename"}), 400
+    data = up.read()
+    if len(data) == 0:
+        return jsonify({"error": "Empty file"}), 400
+    if len(data) > MAX_FILE_MB * 1024 * 1024:
+        return jsonify({"error": f"File too large (max {MAX_FILE_MB}MB)"}), 413
+
+    meeting = get_or_create_meeting(meeting_id)
+    meeting["file_seq"] += 1
+    fobj = {
+        "id": meeting["file_seq"],
+        "name": os.path.basename(up.filename),
+        "size": len(data),
+        "mime": up.mimetype or "application/octet-stream",
+        "data": data,
+        "uploader": request.form.get("uploader", ""),
+        "time": datetime.now().strftime("%H:%M:%S"),
+    }
+    meeting["files"].append(fobj)
+    socketio.emit("files_updated", {"files": _files_meta(meeting)}, room=meeting_id)
+    print(f"[files] [{meeting_id}] Added: {fobj['name']} ({fobj['size']} bytes)")
+    return jsonify({"success": True, "file": {"id": fobj["id"], "name": fobj["name"], "size": fobj["size"]}})
+
+@app.route("/api/files/<meeting_id>/<int:file_id>", methods=["GET"])
+def download_file(meeting_id, file_id):
+    meeting = meetings.get(meeting_id)
+    if not meeting:
+        return jsonify({"error": "Meeting not found"}), 404
+    fobj = next((f for f in meeting["files"] if f["id"] == file_id), None)
+    if not fobj:
+        return jsonify({"error": "File not found"}), 404
+    resp = Response(fobj["data"], mimetype=fobj["mime"])
+    fallback = fobj["name"].encode("ascii", "ignore").decode("ascii") or "download"
+    quoted = quote(fobj["name"])
+    resp.headers["Content-Disposition"] = (
+        f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quoted}"
+    )
+    resp.headers["Content-Length"] = str(fobj["size"])
+    return resp
+
+@app.route("/api/files/<meeting_id>/<int:file_id>", methods=["DELETE"])
+def delete_file(meeting_id, file_id):
+    meeting = get_or_create_meeting(meeting_id)
+    meeting["files"] = [f for f in meeting["files"] if f["id"] != file_id]
+    socketio.emit("files_updated", {"files": _files_meta(meeting)}, room=meeting_id)
+    return jsonify({"success": True})
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": f"File too large (max {MAX_FILE_MB}MB)"}), 413
+
 @app.route("/api/save_minutes", methods=["POST"])
 def save_minutes():
     data         = request.get_json()
@@ -253,7 +332,8 @@ def on_join(data):
         "meeting_id": meeting_id, "role": role,
         "user_count": len(meeting["users"]),
         "history": meeting["entries"],
-        "context_docs": [{"name": d["name"], "size": len(d["content"])} for d in meeting.get("context_docs", [])]
+        "context_docs": [{"name": d["name"], "size": len(d["content"])} for d in meeting.get("context_docs", [])],
+        "files": _files_meta(meeting)
     })
     emit("user_joined", {"role": role, "user_count": len(meeting["users"])},
          room=meeting_id, include_self=False)

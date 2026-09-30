@@ -122,6 +122,26 @@
   .minutes-count { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
   .minutes-empty { padding: 20px 10px; text-align: center; font-size: 11px; color: var(--text-dim); line-height: 1.6; }
 
+  /* 파일 공유 (좌측 패널 중간) */
+  .share-section { display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--border); flex: 1; }
+  .share-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .share-list::-webkit-scrollbar { width: 4px; }
+  .share-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .share-empty { padding: 16px 10px; text-align: center; font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+  .share-item { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 7px; background: var(--bg3); border: 1px solid var(--border); margin-bottom: 5px; }
+  .share-item-main { flex: 1; min-width: 0; cursor: pointer; }
+  .share-item-name { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .share-item-meta { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+  .share-dl { flex-shrink: 0; background: none; border: none; color: var(--accent-ok); font-size: 15px; cursor: pointer; padding: 2px 4px; }
+  .share-dl:hover { color: var(--text); }
+  .share-del { flex-shrink: 0; background: none; border: none; color: var(--text-dim); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+  .share-del:hover { color: #f94f5a; }
+  .share-add-area { padding: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .share-add-btn { width: 100%; padding: 8px; border-radius: 7px; border: 1px dashed var(--accent-ok); background: transparent; color: var(--accent-ok); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .share-add-btn:hover { background: rgba(79,207,138,0.1); }
+  .share-add-btn:disabled { opacity: 0.5; cursor: default; }
+  #share-file-input { display: none; }
+
   /* CENTER */
   .panel-center { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; }
   .input-area { padding: 10px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; relative; }
@@ -253,6 +273,17 @@
       <div class="minutes-list" id="minutes-list">
         <div class="minutes-empty">Logs will appear here after download</div>
       </div>
+
+      <div class="share-section">
+        <div class="panel-header">📁 File Sharing</div>
+        <div class="share-list" id="share-list">
+          <div class="share-empty">Share files with participants<br>(up to 10MB)</div>
+        </div>
+        <div class="share-add-area">
+          <input type="file" id="share-file-input" onchange="onShareFileSelect(event)">
+          <button class="share-add-btn" id="share-add-btn" onclick="document.getElementById('share-file-input').click()">↑ Send File</button>
+        </div>
+      </div>
     </div>
 
     <div class="panel-center">
@@ -358,6 +389,7 @@ function connectSocket() {
     document.getElementById('pill-users').textContent = 'Participants: ' + data.user_count;
     if (data.history) data.history.forEach(e => renderEntry(e, e.source_lang === S.myLang));
     if (data.context_docs) renderCtxDocs(data.context_docs);
+    renderFiles(data.files || []);
   });
 
   S.socket.on('message_pending', entry => {
@@ -376,6 +408,7 @@ function connectSocket() {
   });
 
   S.socket.on('context_updated', data => renderCtxDocs(data.docs));
+  S.socket.on('files_updated', data => renderFiles(data.files || []));
   S.socket.on('meeting_cleared', () => { location.reload(); });
 }
 
@@ -479,6 +512,82 @@ async function onCtxFileSelect(event) {
     }
   }
   event.target.value = '';
+}
+
+function formatBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFiles(files) {
+  const list = document.getElementById('share-list');
+  if (!list) return;
+  files = files || [];
+  if (files.length === 0) {
+    list.innerHTML = '<div class="share-empty">Share files with participants<br>(up to 10MB)</div>';
+    return;
+  }
+  list.innerHTML = files.map(f => {
+    const meta = formatBytes(f.size) + (f.uploader ? ' · ' + escapeHtml(f.uploader) : '') + (f.time ? ' · ' + escapeHtml(f.time) : '');
+    return '<div class="share-item">' +
+      '<div class="share-item-main" onclick="downloadSharedFile(' + f.id + ', \'' + encodeURIComponent(f.name) + '\')">' +
+        '<div class="share-item-name">📄 ' + escapeHtml(f.name) + '</div>' +
+        '<div class="share-item-meta">' + meta + '</div>' +
+      '</div>' +
+      '<button class="share-dl" title="Download" onclick="downloadSharedFile(' + f.id + ', \'' + encodeURIComponent(f.name) + '\')">⬇</button>' +
+      '<button class="share-del" title="Delete" onclick="deleteSharedFile(' + f.id + ')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function downloadSharedFile(id) {
+  const a = document.createElement('a');
+  a.href = '/api/files/' + encodeURIComponent(S.meetingId) + '/' + id;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function deleteSharedFile(id) {
+  try {
+    const res = await fetch('/api/files/' + encodeURIComponent(S.meetingId) + '/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('파일 삭제됨', 'ok');
+  } catch (e) {
+    showToast('삭제 실패', 'err');
+  }
+}
+
+async function onShareFileSelect(event) {
+  const file = (event.target.files || [])[0];
+  event.target.value = '';
+  if (!file) return;
+
+  const MAX = 10 * 1024 * 1024;
+  if (file.size > MAX) {
+    showToast('파일이 너무 큽니다 (최대 10MB): ' + file.name, 'err');
+    return;
+  }
+
+  const btn = document.getElementById('share-add-btn');
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '⏳ Sending...'; btn.disabled = true; }
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('uploader', document.getElementById('speaker-input')?.value.trim() || '');
+    const res = await fetch('/api/files/' + encodeURIComponent(S.meetingId), { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(data.error || ('HTTP ' + res.status));
+    showToast('파일 전송 완료: ' + file.name, 'ok');
+  } catch (e) {
+    showToast('전송 실패: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.textContent = original; btn.disabled = false; }
+  }
 }
 
 async function downloadMinutes(lang) {
